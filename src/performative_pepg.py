@@ -565,14 +565,14 @@ class PePG():
                     R_performative = self._get_performative_rewards()
                     T_performative = self._get_performative_transitions()
                     d_performative = self.env._get_d(T_performative, self.agents[1])
-                    V_pi = np.sum(d_performative * R_performative) - self.lamda/2 * np.linalg.norm(d_performative)**2
+                    V_pi = np.sum(d_performative * R_performative)
                     self.v_values.append(V_pi)
                     wandb.log({
                         "v_pi": V_pi,   
                         "iteration": self.iteration
                     })
                 else:
-                    V_pi = np.sum(d_new * self.R) - self.lamda/2 * np.linalg.norm(d_new)**2
+                    V_pi = np.sum(d_new * self.R)
                     self.v_values.append(V_pi)
                     wandb.log({
                         "v_pi": V_pi,
