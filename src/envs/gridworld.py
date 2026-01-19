@@ -1,47 +1,67 @@
-import numpy as np
-from numpy.testing import assert_almost_equal
 import copy
 import itertools
 import json
+
+import numpy as np
+from numpy.testing import assert_almost_equal
 
 from src.agents.gw_agent import Agent
 from src.policies.policies import *
 
 
-class Gridworld():
-
-    def __init__(self, beta, eps, gamma, num_followers, sampling=False, n_sample=500, seed=1, max_sample_steps=100):
-
+class Gridworld:
+    def __init__(
+        self,
+        beta,
+        eps,
+        gamma,
+        num_followers,
+        sampling=False,
+        n_sample=500,
+        seed=1,
+        max_sample_steps=100,
+    ):
         # grid
         h = -0.5
         f = -0.02
         self.grid = np.array(
-            [[-0.01, -0.01, -0.01, -0.01, -0.01, -0.01, -0.01, -0.01],
-             [-0.01, -0.01, f, -0.01, h, -0.01, -0.01, -0.01],
-             [-0.01, -0.01, -0.01, h, -0.01, -0.01, f, -0.01],
-             [-0.01, f, -0.01, -0.01, -0.01, h, -0.01, f],
-             [-0.01, -0.01, -0.01, h, -0.01, -0.01, f, -0.01],
-             [-0.01, h, h, -0.01, f, -0.01, h, -0.01],
-             [-0.01, h, -0.01, -0.01, h, -0.01, h, -0.01],
-             [-0.01, -0.01, -0.01, h, -0.01, f, -0.01, +1]])
-        
+            [
+                [-0.01, -0.01, -0.01, -0.01, -0.01, -0.01, -0.01, -0.01],
+                [-0.01, -0.01, f, -0.01, h, -0.01, -0.01, -0.01],
+                [-0.01, -0.01, -0.01, h, -0.01, -0.01, f, -0.01],
+                [-0.01, f, -0.01, -0.01, -0.01, h, -0.01, f],
+                [-0.01, -0.01, -0.01, h, -0.01, -0.01, f, -0.01],
+                [-0.01, h, h, -0.01, f, -0.01, h, -0.01],
+                [-0.01, h, -0.01, -0.01, h, -0.01, h, -0.01],
+                [-0.01, -0.01, -0.01, h, -0.01, f, -0.01, +1],
+            ]
+        )
+
         self.dim = np.prod(self.grid.shape)
         self.state_ids = range(self.dim)
         self.terminal_state_id = self.dim - 1
         self.reward_space = [-0.01, f, h, 1]
         # initial states
-        self.initial_states = [s for s in self.state_ids if (state := self._get_state(s)) and (state[0] == 0 or state[1] == 0)]
+        self.initial_states = [
+            s
+            for s in self.state_ids
+            if (state := self._get_state(s)) and (state[0] == 0 or state[1] == 0)
+        ]
         self.rho = self._get_initial_state_distribution()
         # move: left, right, up, down
         self.moves = [0, 1, 2, 3]
         self.move_mapping = {0: (0, -1), 1: (0, 1), 2: (-1, 0), 3: (1, 0)}
-        self.move_meaning = {0: 'left', 1: 'right', 2: 'up', 3: 'down'}
+        self.move_meaning = {0: "left", 1: "right", 2: "up", 3: "down"}
         # intervene: left, right, up, down
         self.interventions = [0, 1, 2, 3, 4]
-        self.interventions_mapping = {move: self.move_mapping[move] for move in self.moves}
+        self.interventions_mapping = {
+            move: self.move_mapping[move] for move in self.moves
+        }
         self.interventions_mapping[4] = False
-        self.interventions_meaning = {move: self.move_meaning[move] for move in self.moves}
-        self.interventions_meaning[4] = 'nope'
+        self.interventions_meaning = {
+            move: self.move_meaning[move] for move in self.moves
+        }
+        self.interventions_meaning[4] = "nope"
         # cost of intervention
         self.C = -0.05
         # agents
@@ -60,7 +80,7 @@ class Gridworld():
         self.eps = eps
         self.pertrubed_grids = []
         for pertrubation_seed in range(num_followers):
-            pertrubation_rng  = np.random.default_rng(pertrubation_seed)
+            pertrubation_rng = np.random.default_rng(pertrubation_seed)
             self.pertrubed_grids.append(self.pertrub_grid(pertrubation_rng))
         # pertrubed grid that computational functions solve for
         self.active_pertrubed_grid = self.pertrubed_grids[0]
@@ -73,19 +93,17 @@ class Gridworld():
         self.max_sample_steps = max_sample_steps
         # set random generator (for trajectory sampling)
         self.rng = np.random.default_rng(seed)
-        
+
         self.reset()
 
     def reset(self):
-        """
-        """
+        """ """
         self.initialize_policies()
 
         return
 
     def get_next_state(self, state_id, move):
-        """
-        """
+        """ """
         assert move in self.moves, f"Illegal move {move} was given."
 
         state = self._get_state(state_id)
@@ -103,10 +121,9 @@ class Gridworld():
         return next_state_id
 
     def get_rewards(self, state_id, next_state_id):
-        """
-        """
+        """ """
         rewards = {}
-        
+
         if self.is_terminal(state_id):
             rewards[1] = 0
             rewards[2] = 0
@@ -121,9 +138,8 @@ class Gridworld():
         return rewards
 
     def _get_initial_state_distribution(self):
-        """
-        """
-        rho = np.zeros(self.dim, dtype='float64')
+        """ """
+        rho = np.zeros(self.dim, dtype="float64")
         initial_states = self.initial_states
         for s in initial_states:
             rho[s] = 1 / len(initial_states)
@@ -131,20 +147,19 @@ class Gridworld():
         return rho
 
     def value_iteration(self, agent, tol=1e-5):
-        """
-        """
+        """ """
         gamma = self.gamma
 
         # initialize all state values to zero
-        U = np.zeros(self.dim, dtype='float64')
+        U = np.zeros(self.dim, dtype="float64")
         while True:
             U_old = copy.deepcopy(U)
             delta = 0
             for s in self.state_ids:
-                if self.is_terminal(s): 
+                if self.is_terminal(s):
                     U[s] = 0
                 else:
-                    bell = np.zeros_like(self.moves, dtype='float64')
+                    bell = np.zeros_like(self.moves, dtype="float64")
                     for move in self.moves:
                         s_pr = self.get_next_state(s, move)
                         r = self.get_rewards(s, s_pr)
@@ -158,12 +173,11 @@ class Gridworld():
         return U
 
     def _get_Q(self, U, agent):
-        """
-        """
+        """ """
         gamma = self.gamma
 
         # initialize all state-move values to zero
-        Q = np.zeros(shape=(self.dim, len(self.moves)), dtype='float64')
+        Q = np.zeros(shape=(self.dim, len(self.moves)), dtype="float64")
         for s, move in itertools.product(self.state_ids, self.moves):
             if self.is_terminal(s):
                 Q[s, move] = 0
@@ -179,7 +193,9 @@ class Gridworld():
         actions: dict {agent.id: action}
         """
         for agent in self.agents.values():
-            assert actions[agent.id] in agent.actions, f"Illegal action {actions[agent.id]} was given."
+            assert actions[agent.id] in agent.actions, (
+                f"Illegal action {actions[agent.id]} was given."
+            )
 
         if not self.intervention_happened(actions):
             next_state_id = self.get_next_state(state_id, actions[1])
@@ -189,8 +205,7 @@ class Gridworld():
         return next_state_id
 
     def get_mrewards(self, state_id, actions, next_state_id):
-        """
-        """  
+        """ """
         rewards = self.get_rewards(state_id, next_state_id)
         if self.intervention_happened(actions):
             rewards[2] += self.C
@@ -198,21 +213,20 @@ class Gridworld():
         return rewards
 
     def best_response_value_iteration(self, agent, fixed_agent, tol=1e-5):
-        """
-        """
+        """ """
         gamma = self.gamma
 
         # initialize all state values to zero
-        U = np.zeros(self.dim, dtype='float64')
+        U = np.zeros(self.dim, dtype="float64")
         while True:
             U_old = copy.deepcopy(U)
             delta = 0
             for s in self.state_ids:
-                if self.is_terminal(s): 
+                if self.is_terminal(s):
                     U[s] = 0
                 else:
                     p = fixed_agent._get_probs(s)
-                    bell = np.zeros_like(agent.actions, dtype='float64')
+                    bell = np.zeros_like(agent.actions, dtype="float64")
                     for a in agent.actions:
                         for fa in fixed_agent.actions:
                             actions = {fixed_agent.id: fa, agent.id: a}
@@ -225,23 +239,22 @@ class Gridworld():
                 break
 
         return U
-    
+
     def _get_mU(self, agent, fixed_agent, tol=1e-5):
-        """
-        """
+        """ """
         gamma = self.gamma
 
         # initialize all state values to zero
-        U = np.zeros(self.dim, dtype='float64')
+        U = np.zeros(self.dim, dtype="float64")
         while True:
             U_old = copy.deepcopy(U)
             delta = 0
             for s in self.state_ids:
-                if self.is_terminal(s): 
+                if self.is_terminal(s):
                     U[s] = 0
                 else:
                     p = fixed_agent._get_probs(s)
-                    bell = np.zeros_like(agent.actions, dtype='float64')
+                    bell = np.zeros_like(agent.actions, dtype="float64")
                     for a in agent.actions:
                         for fa in fixed_agent.actions:
                             actions = {fixed_agent.id: fa, agent.id: a}
@@ -257,12 +270,11 @@ class Gridworld():
         return U
 
     def _get_mQ(self, U, agent, fixed_agent):
-        """
-        """
+        """ """
         gamma = self.gamma
 
         # initialize all state-move values to zero
-        Q = np.zeros(shape=(self.dim, len(agent.actions)), dtype='float64')
+        Q = np.zeros(shape=(self.dim, len(agent.actions)), dtype="float64")
         for s, a in itertools.product(self.state_ids, agent.actions):
             if self.is_terminal(s):
                 Q[s, a] = 0
@@ -288,13 +300,12 @@ class Gridworld():
             return self._get_approximate_RT()
 
     def _get_exact_RT(self):
-        """
-        """
+        """ """
         agent = self.agents[1]
         fixed_agent = self.agents[2]
 
-        T = np.zeros(shape=(self.dim, len(agent.actions), self.dim), dtype='float64')
-        R = np.zeros(shape=(self.dim, len(agent.actions)), dtype='float64')
+        T = np.zeros(shape=(self.dim, len(agent.actions), self.dim), dtype="float64")
+        R = np.zeros(shape=(self.dim, len(agent.actions)), dtype="float64")
         for s, a in itertools.product(self.state_ids, agent.actions):
             p = fixed_agent._get_probs(s)
             for fa in fixed_agent.actions:
@@ -307,18 +318,19 @@ class Gridworld():
             assert_almost_equal(np.sum(T[s, a, :]), 1)
 
         return R, T
-    
+
     def _get_approximate_RT(self):
-        """
-        """
+        """ """
         agent = self.agents[1]
         n_sample = self.n_sample
 
         # total values
-        T_tot = np.zeros(shape=(self.dim, len(agent.actions), self.dim), dtype='float64')
-        R_tot = np.zeros(shape=(self.dim, len(agent.actions)), dtype='float64')
+        T_tot = np.zeros(
+            shape=(self.dim, len(agent.actions), self.dim), dtype="float64"
+        )
+        R_tot = np.zeros(shape=(self.dim, len(agent.actions)), dtype="float64")
         # visitattion count
-        V = np.zeros(shape=(self.dim, len(agent.actions)), dtype='int')
+        V = np.zeros(shape=(self.dim, len(agent.actions)), dtype="int")
         # compute empirical data
         for _ in range(n_sample):
             trajectory = self.sample_trajectory()
@@ -327,11 +339,13 @@ class Gridworld():
                 V[s, a] += 1
                 # update total values
                 T_tot[s, a, s_pr] += 1
-                R_tot[s, a] += r    
+                R_tot[s, a] += r
 
         # approximated values
-        T_hat = np.zeros(shape=(self.dim, len(agent.actions), self.dim), dtype='float64')
-        R_hat = np.zeros(shape=(self.dim, len(agent.actions)), dtype='float64')
+        T_hat = np.zeros(
+            shape=(self.dim, len(agent.actions), self.dim), dtype="float64"
+        )
+        R_hat = np.zeros(shape=(self.dim, len(agent.actions)), dtype="float64")
         # remove +1 from reward space
         reward_space = [r for r in self.reward_space if r != 1]
         for s in self.state_ids:
@@ -362,7 +376,7 @@ class Gridworld():
         gamma = self.gamma
         rho = self.rho
 
-        d = np.zeros(shape=(self.dim, len(agent.actions)), dtype='float64')
+        d = np.zeros(shape=(self.dim, len(agent.actions)), dtype="float64")
         while True:
             d_old = copy.deepcopy(d)
             delta = 0
@@ -371,67 +385,61 @@ class Gridworld():
                     d[s, a] = 0
                 else:
                     p = agent._get_probs(s)
-                    d[s, a] = p[a] * (rho[s] + gamma * np.sum(d_old * T[:,:,s]))
-                delta = max(delta, abs(d[s, a] - d_old[s, a])) 
+                    d[s, a] = p[a] * (rho[s] + gamma * np.sum(d_old * T[:, :, s]))
+                delta = max(delta, abs(d[s, a] - d_old[s, a]))
             if delta < tol:
                 break
 
         return d
 
     def is_valid(self, state):
-        """
-        """
+        """ """
         grid_shape = self.grid.shape
 
         return bool(0 <= state[0] < grid_shape[0] and 0 <= state[1] < grid_shape[1])
 
     def is_terminal(self, state_id):
-        """
-        """
+        """ """
 
         return bool(state_id == self.terminal_state_id)
 
     def intervention_happened(self, actions):
-        """
-        """
+        """ """
 
         return bool(self.interventions_mapping[actions[2]])
 
     def _get_state(self, state_id):
-        """
-        """
+        """ """
         grid_shape = self.grid.shape
         state = (state_id // grid_shape[0], state_id % grid_shape[1])
 
         return state
 
     def _get_state_id(self, state):
-        """
-        """
+        """ """
         grid_shape = self.grid.shape
         state_id = state[0] * grid_shape[0] + state[1]
 
         return state_id
-    
+
     def _get_reachable_states(self, state_id):
-        """
-        """
+        """ """
         r_states = []
 
         for move in self.moves:
             next_state_id = self.get_next_state(state_id, move)
-            if next_state_id not in r_states: r_states.append(next_state_id)
+            if next_state_id not in r_states:
+                r_states.append(next_state_id)
 
         return r_states
 
     def pertrub_grid(self, pertrubation_rng):
-        """
-        """
+        """ """
         rng = pertrubation_rng
         grid_shape = self.grid.shape
 
         grid_values = np.unique(self.grid)
-        grid_values = np.delete(grid_values, np.where(grid_values==1))
+        grid_values = np.delete(grid_values, np.where(grid_values == 1))
 
         new_grid = np.zeros(shape=grid_shape)
         r = rng.random(grid_shape)
@@ -448,13 +456,12 @@ class Gridworld():
         return new_grid
 
     def sample_trajectory(self):
-        """
-        """
+        """ """
         agent = self.agents[1]
         fixed_agent = self.agents[2]
         rho = self.rho
         rng = self.rng
-        
+
         # trajectory quartets (state, action, next state, reward)
         trajectory = []
         n_steps = 0
@@ -474,15 +481,15 @@ class Gridworld():
             trajectory.append((s, a, s_pr, r[agent.id]))
             # prepare for next time-step
             s = s_pr
-            n_steps += 1 
+            n_steps += 1
 
         return trajectory
-    
+
     def _get_policy_array(self, agent):
         """
         Given the (initial) agent's policy return the probability array
         """
-        pi = np.zeros(shape=(self.dim, len(agent.actions)), dtype='float64')
+        pi = np.zeros(shape=(self.dim, len(agent.actions)), dtype="float64")
 
         for s in self.state_ids:
             p = agent._get_probs(s)
@@ -492,8 +499,7 @@ class Gridworld():
         return pi
 
     def initialize_policies(self):
-        """
-        """
+        """ """
         agents = self.agents
 
         # agent 1
@@ -511,9 +517,9 @@ class Gridworld():
         # store initial visualization of env
         config_name = "initial_" + f"beta={self.beta}_gamma={self.gamma}"
         vis = self._get_env_vis()
-        with open(f'limiting_envs/{config_name}.json', 'w') as f:
+        with open(f"limiting_envs/{config_name}.json", "w") as f:
             json.dump(vis, f, indent=4)
-        
+
         return
 
     def response_model(self, agents):
@@ -522,7 +528,7 @@ class Gridworld():
         """
         fixed_agent = agents[1]
         agent = agents[2]
-        
+
         # compute best response Q values for all pertrubed grids
         lst_Q_br = []
         for pertrubed_grid in self.pertrubed_grids:
@@ -551,7 +557,8 @@ class Gridworld():
                 p = agent._get_probs(s)
                 a = np.argmax(p)
                 # a should have probability higher than nope
-                if p[a] == p[4]: a = 4
+                if p[a] == p[4]:
+                    a = 4
                 vis_row.append(self.interventions_meaning[a])
             vis.append(vis_row)
 

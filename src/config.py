@@ -1,10 +1,11 @@
-from dataclasses import dataclass, field
 import multiprocessing
+from dataclasses import dataclass, field
 
 
 @dataclass
 class EnvironmentConfig:
     """Environment parameters."""
+
     gamma: float = 0.9
     eps: float = 0.5
     num_followers: int = 2
@@ -14,9 +15,10 @@ class EnvironmentConfig:
 @dataclass
 class ExperimentConfig:
     """Experiment parameters."""
+
     max_iterations: int = 100
     lamda: float = 0.1
-    reg: str = 'L2'
+    reg: str = "L2"
     gradient: bool = True
     eta: float = 0.1
     sampling: bool = False
@@ -38,6 +40,7 @@ class ExperimentConfig:
 @dataclass
 class AblationConfig:
     """Ablation study configuration."""
+
     num_seeds: int = 20
     n_jobs: int = field(default_factory=lambda: min(4, multiprocessing.cpu_count()))
 
@@ -48,17 +51,29 @@ class AblationConfig:
 @dataclass
 class EntropyAblationConfig(AblationConfig):
     """Entropy regularization ablation configuration."""
+
     entropy_lambdas: list = field(default_factory=lambda: [0.01, 0.5, 1, 2])
     max_iterations: int = 5
     env: EnvironmentConfig = field(default_factory=EnvironmentConfig)
-    experiment: ExperimentConfig = field(default_factory=lambda: ExperimentConfig(
-        max_iterations=5, lamda=0.1, reg='ER', gradient=True, eta=0.1,
-        sampling=False, n_sample=100, policy_gradient=True, nu=0.1))
+    experiment: ExperimentConfig = field(
+        default_factory=lambda: ExperimentConfig(
+            max_iterations=5,
+            lamda=0.1,
+            reg="ER",
+            gradient=True,
+            eta=0.1,
+            sampling=False,
+            n_sample=100,
+            policy_gradient=True,
+            nu=0.1,
+        )
+    )
 
 
 @dataclass
 class LearningRateAblationConfig(AblationConfig):
     """Learning rate ablation configuration."""
+
     learning_rates: list = field(default_factory=lambda: [0.01, 0.05, 0.1, 0.2, 0.5])
     env: EnvironmentConfig = field(default_factory=EnvironmentConfig)
     experiment: ExperimentConfig = field(default_factory=ExperimentConfig)
@@ -67,6 +82,7 @@ class LearningRateAblationConfig(AblationConfig):
 @dataclass
 class PlotConfig:
     """Plotting configuration."""
+
     figsize: tuple = (16, 6)
     dpi: int = 300
     font_size: int = 20
@@ -80,6 +96,7 @@ class PlotConfig:
 
     def get_ci_multiplier(self, num_samples=20):
         import numpy as np
+
         return self.t_critical / np.sqrt(num_samples)
 
 

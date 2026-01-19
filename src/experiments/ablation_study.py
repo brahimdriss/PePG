@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
+from statistics import mean, stdev
+
 from joblib import Parallel, delayed
 from tqdm import tqdm
-from statistics import mean, stdev
 
 from src.envs.gridworld import Gridworld
 from src.performative_pepg import PePG
@@ -51,20 +52,28 @@ class AblationStudy(ABC):
                 for seed in tqdm(self.seeds, desc=f"{param_name}={param_value}")
             )
 
-            d_diffs = [result['d_diff'] for result in results_across_seeds]
-            v_values_list = [result['v_values'] for result in results_across_seeds if result['v_values']]
+            d_diffs = [result["d_diff"] for result in results_across_seeds]
+            v_values_list = [
+                result["v_values"]
+                for result in results_across_seeds
+                if result["v_values"]
+            ]
 
             result_entry = self._create_result_entry(param_value, param_name)
 
             if d_diffs:
-                result_entry['d_diff_mean'] = list(map(mean, zip(*d_diffs)))
-                result_entry['d_diff_std'] = list(map(stdev, zip(*d_diffs)))
-                print(f"  d_diff: {result_entry['d_diff_mean'][-1]:.6f} ± {result_entry['d_diff_std'][-1]:.6f}")
+                result_entry["d_diff_mean"] = list(map(mean, zip(*d_diffs)))
+                result_entry["d_diff_std"] = list(map(stdev, zip(*d_diffs)))
+                print(
+                    f"  d_diff: {result_entry['d_diff_mean'][-1]:.6f} ± {result_entry['d_diff_std'][-1]:.6f}"
+                )
 
             if v_values_list:
-                result_entry['v_values_mean'] = list(map(mean, zip(*v_values_list)))
-                result_entry['v_values_std'] = list(map(stdev, zip(*v_values_list)))
-                print(f"  value:  {result_entry['v_values_mean'][-1]:.4f} ± {result_entry['v_values_std'][-1]:.4f}")
+                result_entry["v_values_mean"] = list(map(mean, zip(*v_values_list)))
+                result_entry["v_values_std"] = list(map(stdev, zip(*v_values_list)))
+                print(
+                    f"  value:  {result_entry['v_values_mean'][-1]:.4f} ± {result_entry['v_values_std'][-1]:.4f}"
+                )
 
             results.append(result_entry)
 
@@ -72,15 +81,15 @@ class AblationStudy(ABC):
 
     def _create_result_entry(self, param_value, param_name):
         return {
-            "beta": self.env_params['beta'],
-            "lamda": self.common_params['lamda'],
-            "gamma": self.env_params['gamma'],
-            "reg": self.common_params['reg'],
-            "eta": self.common_params.get('eta'),
-            "nu": self.common_params.get('nu'),
-            "warmup": self.common_params.get('warmup'),
+            "beta": self.env_params["beta"],
+            "lamda": self.common_params["lamda"],
+            "gamma": self.env_params["gamma"],
+            "reg": self.common_params["reg"],
+            "eta": self.common_params.get("eta"),
+            "nu": self.common_params.get("nu"),
+            "warmup": self.common_params.get("warmup"),
             param_name: param_value,
-            "algorithm": self.get_algorithm_name()
+            "algorithm": self.get_algorithm_name(),
         }
 
 
@@ -103,15 +112,15 @@ class EntropyAblationStudy(AblationStudy):
     def run_single_experiment(self, entropy_lambda, seed):
         env = Gridworld(**self.env_params)
         params = self.common_params.copy()
-        params['entropy_reg_lambda'] = entropy_lambda
-        params['seed'] = seed
+        params["entropy_reg_lambda"] = entropy_lambda
+        params["seed"] = seed
 
         regpepg = RegPePG(env, **params)
         regpepg.execute()
 
         return {
-            'd_diff': regpepg.d_diff,
-            'v_values': regpepg.v_values if regpepg.v_values else []
+            "d_diff": regpepg.d_diff,
+            "v_values": regpepg.v_values if regpepg.v_values else [],
         }
 
 
@@ -134,13 +143,13 @@ class LearningRateAblationStudy(AblationStudy):
     def run_single_experiment(self, eta, seed):
         env = Gridworld(**self.env_params)
         params = self.common_params.copy()
-        params['eta'] = eta
-        params['seed'] = seed
+        params["eta"] = eta
+        params["seed"] = seed
 
         pepg = PePG(env, **params)
         pepg.execute()
 
         return {
-            'd_diff': pepg.d_diff,
-            'v_values': pepg.v_values if pepg.v_values else []
+            "d_diff": pepg.d_diff,
+            "v_values": pepg.v_values if pepg.v_values else [],
         }

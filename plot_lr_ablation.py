@@ -1,35 +1,38 @@
 import json
+
 from src.common_utils import find_latest_file
 from src.plotting.plot_ablation import plot_ablation_study
 
 
 def find_latest_ablation_json():
     patterns = [
-        'results/pepg_eta_ablation_multiseed_*.json',
-        'pepg_eta_ablation_*.json',
-        'results/pepg_eta_ablation_*.json'
+        "results/pepg_eta_ablation_multiseed_*.json",
+        "pepg_eta_ablation_*.json",
+        "results/pepg_eta_ablation_*.json",
     ]
 
     latest_file = find_latest_file(patterns)
     if not latest_file:
-        raise FileNotFoundError("No learning rate ablation JSON files found. Please check the file location.")
+        raise FileNotFoundError(
+            "No learning rate ablation JSON files found. Please check the file location."
+        )
 
     return latest_file
 
 
 def plot_value_function_ablation(json_file):
-    with open(json_file, 'r') as f:
+    with open(json_file, "r") as f:
         results = json.load(f)
 
     pepg_data = results["pepg"]
 
     png_file, pdf_file = plot_ablation_study(
         results=pepg_data,
-        param_name='eta',
-        param_label='η',
-        output_filename_prefix='pepg_value_function_lr_ablation',
-        title_suffix='Learning Rate',
-        ylabel='$v^\\pi_\\pi$'
+        param_name="eta",
+        param_label="η",
+        output_filename_prefix="pepg_value_function_lr_ablation",
+        title_suffix="Learning Rate",
+        ylabel="$v^\\pi_\\pi$",
     )
 
     print(f"High-quality plot saved as: {png_file}")
