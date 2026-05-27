@@ -21,7 +21,7 @@ pip install -r requirements.txt
 
 **Run experiment:**
 ```bash
-python run_experiment.py --etas 0.1 --max_iterations 100 --n_jobs 20 --nus 0.1 --warmup 1 --compare_algorithms --policy_gradient --multi_agent --num_seeds 20 --eps 0.5
+python run_experiment.py --etas 0.1 --max_iterations 100 --n_jobs 20 --nus 0.1 --warmup 1 --compare_algorithms --policy_gradient --multi_agent --use_pepg --num_seeds 20 --eps 0.5
 ```
 
 **Plot figures:**
